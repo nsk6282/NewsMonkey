@@ -2,6 +2,8 @@ import React, { Component } from 'react'
 import NewsItem from './NewsItem'
 import Spinner from './Spinner'
 import PropTypes from 'prop-types'
+import InfiniteScroll from 'react-infinite-scroll-component'
+
 
 
 
@@ -28,9 +30,9 @@ export class News extends Component {
         super(props);
         this.state = {
             articles:[],
-            loading:false,
+            loading:true,
             page:1,
-            totalResults:0
+            totalResults:0,
         };
         document.title= `${this.capitalize(this.props.category)} - NewsMonkey`;
     };
@@ -38,16 +40,35 @@ export class News extends Component {
     async update(pageNo){
         let url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&apiKey=${this.props.apiKey}&page=${pageNo}&pageSize=${this.props.pageSize}&category=${this.props.category}`;
         this.setState({loading:true});
+        this.props.setProgress(20);
         let data = await fetch(url);
         console.log("yop")
+        this.props.setProgress(40);
         let parseData = await data.json();
         console.log(parseData);
+        this.props.setProgress(70);
         this.setState({articles:parseData.articles,
                         totalResults:parseData.totalResults,
                         page:pageNo,
                         loading:false
         });
+        this.props.setProgress(100);
 
+    }
+
+    fetchMoreData = async()=>{
+        let url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&apiKey=${this.props.apiKey}&page=${this.state.page+1}&pageSize=${this.props.pageSize}&category=${this.props.category}`;
+        // this.setState({loading:true});
+        
+        let data = await fetch(url);
+        console.log("yop")
+        let parseData = await data.json();
+        console.log(parseData);
+        this.setState({articles:this.state.articles.concat(parseData.articles),
+                        totalResults:parseData.totalResults,
+                        page:this.state.page+1,
+        });
+        
     }
 
     async componentDidMount(){
@@ -95,22 +116,37 @@ export class News extends Component {
 
     render() {
         return (
+            <>
             <div className='container my-3'>
             <h1 className='text-center' style={{margin:"30px 0px"}}>NewsMonkey - Top {this.capitalize(this.props.category)} Headlines </h1>
             {this.state.loading && <Spinner/>}
-            <div className="row">
-                {!this.state.loading && this.state.articles.map((element)=>{
-                    return <div className="col-md-4 my-3" key={element.url}>
-                            <NewsItem   title={element.title?element.title:""} description={element.description?element.description:""} imageUrl={element.urlToImage} newsUrl={element.url} author={element.author} date={element.publishedAt} source={element.source.name}/>
-                        </div> 
-                })}
+            
+            <InfiniteScroll
+                dataLength={this.state.articles.length}
+                next={this.fetchMoreData}
+                hasMore={this.state.articles.length!==this.state.totalResults}
+                loader={<Spinner/>}
+                style={{overflow:"hidden"}}
+            >    
+                <div className="container">
+                <div className="row">
+                    {this.state.articles.map((element)=>{
+                        return <div className="col-md-4 my-3" key={element.url+ element.title}>
+                                <NewsItem   title={element.title?element.title:""} description={element.description?element.description:""} imageUrl={element.urlToImage} newsUrl={element.url} author={element.author} date={element.publishedAt} source={element.source.name}/>
+                            </div> 
+                    })}
                 </div>
-                <div className="container d-flex justify-content-between">
+                </div>
+            </InfiniteScroll>
+            
+                
+                {/* <div className="container d-flex justify-content-between">
                 <button type="button" disabled={this.state.page<=1} className="btn btn-dark"onClick={this.prevNews}>&larr; Previous</button>
                 <button type="button" disabled={this.state.page>=Math.ceil(this.state.totalResults/(this.props.pageSize))} className="btn btn-dark" onClick={this.nextNews}>Next &rarr;</button>
-            </div>
+            </div> */}
 
             </div>
+            </>
         )
     }
 }
